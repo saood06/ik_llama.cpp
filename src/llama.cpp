@@ -2188,7 +2188,7 @@ static ggml_backend_buffer_type_t llama_default_buffer_type_cpu(bool host_buffer
 #endif
 
     if (buft == nullptr) {
-        buft = ggml_backend_cpu_buffer_type();
+        buft = ggml_backend_numa_buffer_type();
     }
     return buft;
 
@@ -3167,10 +3167,10 @@ static bool llama_kv_cache_init(
     cache.kv_l.reserve(n_layer);
     cache.kvt_l.reserve(n_layer);
 
-    auto * reg = ggml_backend_dev_backend_reg(ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_CPU));
-    auto * is_numa_fn = (decltype(ggml_is_numa) *) ggml_backend_reg_get_proc_address(reg, "ggml_backend_cpu_is_numa");
-    bool is_numa = is_numa_fn();
-    if (!offload && is_numa) {
+    //auto * reg = ggml_backend_dev_backend_reg(ggml_backend_dev_by_type(GGML_BACKEND_TYPE_CPU));
+    //auto * is_numa_fn = (decltype(ggml_is_numa) *) ggml_backend_reg_get_proc_address(reg, "ggml_backend_cpu_is_numa");
+    //bool is_numa = is_numa_fn();
+    if (!offload) {
         LLAMA_LOG_INFO("%s: NUMA usage detected, using NUMA-aware buffer for KV cache\n", __func__);
     }
 
@@ -3181,21 +3181,17 @@ static bool llama_kv_cache_init(
         const uint32_t n_embd_v_gqa = hparams.n_embd_v_gqa(i) + hparams.n_embd_v_s();
 
 	//Commented out old method
-        //struct ggml_context * ctx = offload ? ctx_map.at(model.buft_layer[i].buft) : cache.ctxs.front();
+        struct ggml_context * ctx = offload ? ctx_map.at(model.buft_layer[i].buft) : cache.ctxs.front();
 
-        ggml_backend_buffer_type_t buft;
-        if (offload) {
-            auto * dev = model.dev_layer(i);
-            buft = ggml_backend_dev_buffer_type(dev);
-        } else {
-            buft = ggml_backend_cpu_buffer_type();
-            if (is_numa) {
-                buft = ggml_backend_numa_buffer_type();
-            } else {
-                buft = ggml_backend_cpu_buffer_type();
-            }
-        }
-        ggml_context * ctx = ctx_for_buft(buft);
+        //ggml_backend_buffer_type_t buft;
+        //ggml_context * ctx;
+
+        //if (offload) {
+        //    ctx = ctx_map.at(model.buft_layer[i].buft);
+        //} else {
+        //    buft = ggml_backend_numa_buffer_type();
+	//    ctx = get_ctx_for_buft(buft);
+        //}
 
         if (!ctx) {
             LLAMA_LOG_ERROR("%s: failed to create ggml context for kv cache\n", __func__);
@@ -14460,11 +14456,11 @@ static struct ggml_cgraph * llama_build_graph(
 
     struct ggml_cgraph * result = NULL;
 
-    const llama_vocab * vocab = llama_model_get_vocab(&model);
-    llama_token bos = llama_vocab_bos(vocab);
-    llama_token eos = llama_vocab_eos(vocab);
-    bool is_warming_up = (ubatch.n_tokens == 2 && ubatch.token[0] == bos && ubatch.token[1] == eos);
-    struct llm_build_context llm(lctx, ubatch, cb, worst_case, is_warming_up);
+    const llama_vocab * vocab = llama_get_vocab(&lctx);
+    llama_token bos = llama_token_bos_impl(*vocab);
+    llama_token eos = llama_token_eos_impl(*vocab);
+    bool is_warming_up = (batch.n_tokens == 2 && batch.token[0] == bos && batch.token[1] == eos);
+    struct llm_build_context llm(lctx, batch, cb, worst_case, is_warming_up);
 
     llm.init();
 

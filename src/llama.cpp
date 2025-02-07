@@ -16215,6 +16215,7 @@ static ggml_type llama_tensor_get_type(quantize_state_internal & qs, ggml_type n
             }
         }
     } else if (ftype == LLAMA_FTYPE_MOSTLY_IQ1_S_R4) {
+
         if (name.find("attn_v.weight") != std::string::npos) {
             if (qs.model.hparams.n_expert >= 4 || qs.model.hparams.n_gqa() >= 4) new_type = GGML_TYPE_IQ4_K_R4;
             else if (qs.model.hparams.n_gqa() >= 2) new_type = GGML_TYPE_IQ3_K_R4;
@@ -16222,33 +16223,38 @@ static ggml_type llama_tensor_get_type(quantize_state_internal & qs, ggml_type n
             ++qs.i_attention_wv;
         }
         else if (qs.model.hparams.n_expert >= 8 && name.find("attn_k") != std::string::npos) {
-            new_type = GGML_TYPE_Q4_K_R4;
+            new_type = GGML_TYPE_IQ5_K_R4;
         }
-        else if (qs.model.hparams.n_expert >= 8 && (name.find("blk.0.ffn_down") != std::string::npos ||
-                                                    name.find("blk.0.ffn_gate") != std::string::npos ||
-                                                    name.find("blk.0.ffn_up") != std::string::npos)) {
-            new_type = GGML_TYPE_IQ3_K_R4;
+        else if (qs.model.hparams.n_expert >= 8 && (name.find("ffn_down.weight") != std::string::npos ||
+                                                    name.find("ffn_gate.weight") != std::string::npos ||
+                                                    name.find("ffn_up.weight") != std::string::npos)) {
+            new_type = GGML_TYPE_IQ5_K_R4;
         }
         else if (qs.model.hparams.n_expert >= 8 && name.find("attn_q") != std::string::npos) {
-            new_type = GGML_TYPE_Q4_K_R4;
+            new_type = GGML_TYPE_IQ5_K_R4;
         }
         else if (name.find("attn_qkv.weight") != std::string::npos) {
             new_type = GGML_TYPE_IQ2_K_R4;
         }
         else if (name.find("_shexp.weight") != std::string::npos) {
-            new_type = GGML_TYPE_IQ4_K_R4;
+            new_type = GGML_TYPE_Q6_K_R4;
         }
         else if (name.find("ffn_down") != std::string::npos) {
             auto [i_layer, n_layer] = layer_info(qs.i_ffn_down, qs.n_ffn_down, name.c_str());
             if (qs.params->ffn_down_type < GGML_TYPE_COUNT) new_type = qs.params->ffn_down_type;
             else if (i_layer < n_layer/8) {
-                new_type = GGML_TYPE_Q2_K_R4;
+                new_type = GGML_TYPE_IQ2_K_R4;
             }
             ++qs.i_ffn_down;
         }
         else if (name.find("attn_output.weight") != std::string::npos) {
-            new_type = qs.model.hparams.n_expert >= 4 ? GGML_TYPE_Q5_K_R4 : GGML_TYPE_IQ2_K_R4;
+            new_type = qs.model.hparams.n_expert >= 4 ? GGML_TYPE_IQ5_K_R4 : GGML_TYPE_IQ2_K_R4;
         }
+
+        if (name.find("attn_k_b.weight") != std::string::npos || name.find("attn_v_b.weight") != std::string::npos || name.find("token_embd.weight") != std::string::npos ) {
+            new_type = GGML_TYPE_Q8_0;
+        }
+
     } else if (ftype == LLAMA_FTYPE_MOSTLY_IQ2_XXS || ftype == LLAMA_FTYPE_MOSTLY_IQ2_XS || ftype == LLAMA_FTYPE_MOSTLY_IQ1_S ||
                ftype == LLAMA_FTYPE_MOSTLY_IQ2_S   || ftype == LLAMA_FTYPE_MOSTLY_IQ2_M  || ftype == LLAMA_FTYPE_MOSTLY_IQ1_M ||
                ftype == LLAMA_FTYPE_MOSTLY_IQ2_KS  || ftype == LLAMA_FTYPE_MOSTLY_IQ2_XXS_R4 || ftype == LLAMA_FTYPE_MOSTLY_IQ2_XS_R4 ||
@@ -16284,6 +16290,38 @@ static ggml_type llama_tensor_get_type(quantize_state_internal & qs, ggml_type n
                 else if (ftype == LLAMA_FTYPE_MOSTLY_IQ2_S || is_iq2_m) new_type = GGML_TYPE_IQ3_S;
             }
         }
+    } else if (ftype == LLAMA_FTYPE_MOSTLY_IQ4_K_R4) {
+
+        if (qs.model.hparams.n_expert >= 8 && name.find("attn_k") != std::string::npos) {
+            new_type = GGML_TYPE_IQ6_K;
+        }
+        else if (qs.model.hparams.n_expert >= 8 && (name.find("ffn_down.weight") != std::string::npos ||
+                                                    name.find("ffn_gate.weight") != std::string::npos ||
+                                                    name.find("ffn_up.weight") != std::string::npos)) {
+            new_type = GGML_TYPE_IQ6_K;
+        }
+        else if (qs.model.hparams.n_expert >= 8 && name.find("attn_q") != std::string::npos) {
+            new_type = GGML_TYPE_IQ6_K;
+        }
+        else if (name.find("_shexp.weight") != std::string::npos) {
+            new_type = GGML_TYPE_IQ6_K;
+        }
+        else if (name.find("ffn_down") != std::string::npos) {
+            auto [i_layer, n_layer] = layer_info(qs.i_ffn_down, qs.n_ffn_down, name.c_str());
+            if (qs.params->ffn_down_type < GGML_TYPE_COUNT) new_type = qs.params->ffn_down_type;
+            else if (i_layer < n_layer/8) {
+                new_type = GGML_TYPE_IQ5_K_R4;
+            }
+            ++qs.i_ffn_down;
+        }
+        else if (name.find("attn_output.weight") != std::string::npos) {
+            new_type = qs.model.hparams.n_expert >= 4 ? GGML_TYPE_IQ6_K : GGML_TYPE_IQ2_K_R4;
+        }
+
+        if (name.find("attn_k_b.weight") != std::string::npos || name.find("attn_v_b.weight") != std::string::npos || name.find("token_embd.weight") != std::string::npos ) {
+            new_type = GGML_TYPE_Q8_0;
+        }
+
     } else if (name.find("attn_v.weight") != std::string::npos) {
         if      (qs.params->attn_v_type < GGML_TYPE_COUNT) new_type = qs.params->attn_v_type;
         else if (ftype == LLAMA_FTYPE_MOSTLY_Q2_K) {
@@ -16486,7 +16524,7 @@ static ggml_type llama_tensor_get_type(quantize_state_internal & qs, ggml_type n
                     ftype == LLAMA_FTYPE_MOSTLY_IQ4_NL_R4 || ftype == LLAMA_FTYPE_MOSTLY_IQ4_XS_R4 || ftype == LLAMA_FTYPE_MOSTLY_Q3_K_R4 ||
                     ftype == LLAMA_FTYPE_MOSTLY_Q2_K_R4|| ftype == LLAMA_FTYPE_MOSTLY_IQ4_K_R4 || ftype == LLAMA_FTYPE_MOSTLY_IQ3_K_R4 ||
                     ftype == LLAMA_FTYPE_MOSTLY_IQ2_K_R4 || ftype == LLAMA_FTYPE_MOSTLY_IQ3_XXS_R4 || ftype == LLAMA_FTYPE_MOSTLY_IQ3_S_R4) {
-                    new_type = GGML_TYPE_Q5_K;
+                    new_type = GGML_TYPE_IQ6_K;
                 }
             } else {
                 if      (ftype == LLAMA_FTYPE_MOSTLY_Q2_K   ) new_type = GGML_TYPE_Q3_K;
@@ -17086,7 +17124,7 @@ static void llama_model_quantize_internal(const std::string & fname_inp, const s
                 LLAMA_LOG_ERROR("Missing importance matrix for tensor %s in a very low-bit quantization\n", tensor->name);
                 LLAMA_LOG_ERROR("The result will be garbage, so bailing out\n");
                 LLAMA_LOG_ERROR("============================================================\n\n");
-                throw std::runtime_error(format("Missing importance matrix for tensor %s in a very low-bit quantization", tensor->name));
+                //throw std::runtime_error(format("Missing importance matrix for tensor %s in a very low-bit quantization", tensor->name));
             }
 
             float * f32_data;

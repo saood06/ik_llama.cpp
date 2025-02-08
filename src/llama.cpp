@@ -16294,18 +16294,18 @@ static ggml_type llama_tensor_get_type(quantize_state_internal & qs, ggml_type n
     } else if (ftype == LLAMA_FTYPE_MOSTLY_IQ4_K_R4) {
 
         if (qs.model.hparams.n_expert >= 8 && name.find("attn_k") != std::string::npos) {
-            new_type = GGML_TYPE_IQ6_K;
+            new_type = GGML_TYPE_Q8_K_R8;
         }
         else if (qs.model.hparams.n_expert >= 8 && (name.find("ffn_down.weight") != std::string::npos ||
                                                     name.find("ffn_gate.weight") != std::string::npos ||
                                                     name.find("ffn_up.weight") != std::string::npos)) {
-            new_type = GGML_TYPE_IQ6_K;
+            new_type = GGML_TYPE_Q8_K_R8;
         }
         else if (qs.model.hparams.n_expert >= 8 && name.find("attn_q") != std::string::npos) {
-            new_type = GGML_TYPE_IQ6_K;
+            new_type = GGML_TYPE_Q8_K_R8;
         }
         else if (name.find("_shexp.weight") != std::string::npos) {
-            new_type = GGML_TYPE_IQ6_K;
+            new_type = GGML_TYPE_Q8_K_R8;
         }
         else if (name.find("ffn_down") != std::string::npos) {
             auto [i_layer, n_layer] = layer_info(qs.i_ffn_down, qs.n_ffn_down, name.c_str());
@@ -16316,11 +16316,15 @@ static ggml_type llama_tensor_get_type(quantize_state_internal & qs, ggml_type n
             ++qs.i_ffn_down;
         }
         else if (name.find("attn_output.weight") != std::string::npos) {
-            new_type = qs.model.hparams.n_expert >= 4 ? GGML_TYPE_IQ6_K : GGML_TYPE_IQ2_K_R4;
+            new_type = qs.model.hparams.n_expert >= 4 ? GGML_TYPE_Q8_K_R8 : GGML_TYPE_IQ2_K_R4;
         }
 
-        if (name.find("attn_k_b.weight") != std::string::npos || name.find("attn_v_b.weight") != std::string::npos || name.find("token_embd.weight") != std::string::npos ) {
-            new_type = GGML_TYPE_Q8_0;
+        if (name.find("attn_v_b.weight") != std::string::npos) {
+            new_type = GGML_TYPE_Q8_K_R8;
+        }
+
+	if (name.find("attn_k_b.weight") != std::string::npos) {
+            new_type = GGML_TYPE_Q8_K_R8;
         }
 
     } else if (name.find("attn_v.weight") != std::string::npos) {

@@ -485,6 +485,12 @@ typedef struct {
 } block_iq1_s;
 static_assert(sizeof(block_iq1_s) == sizeof(ggml_half) + QK_K/8 + QK_K/16, "wrong iq1_s block size/padding");
 
+typedef struct {
+    uint8_t  qs[16];
+    uint16_t qh[4];
+} block_iq1_s_r4;
+static_assert(sizeof(block_iq1_s_r4) == 24, "wrong iq1_s_r4 block size/padding");
+
 // 1.75 bpw
 typedef struct {
     uint8_t  qs[QK_K/8];      // grid index, low 8 bits
@@ -492,6 +498,14 @@ typedef struct {
     uint8_t  scales[QK_K/32]; // 3-bit block scales (4-bit if QK_K == 64)
 } block_iq1_m;
 static_assert(sizeof(block_iq1_m) == QK_K/8 + QK_K/16 + QK_K/32, "wrong iq1_m block size/padding");
+
+// 1.75 bpw - blocks of 32 with 4 interleaved rows = 128 quants
+typedef struct {
+    uint8_t  qs[16];     // grid index, low 8 bits
+    uint8_t  qh[ 8];     // grid index, high 3 bits + grid shift bits (for two groups of 8)
+    uint8_t  scales[4];  // 4-bit block scales
+} block_iq1_m_r4;
+static_assert(sizeof(block_iq1_m_r4) == 28, "wrong iq1_m_r4 block size/padding");
 
 //
 // Bitnet and TriLM - implemented as 1.625 bpw
@@ -548,8 +562,8 @@ typedef struct {
     uint8_t scales_h[QK_K/16];
     uint8_t scales_l[QK_K/ 8];
     uint8_t qs[QK_K*4];
-} block_iq4_xs_r4;
-static_assert(sizeof(block_iq4_xs_r4) == 8*sizeof(block_iq4_xs), "wrong iq4_xs_rs block size/padding");
+} block_iq4_xs_r8;
+static_assert(sizeof(block_iq4_xs_r8) == 8*sizeof(block_iq4_xs), "wrong iq4_xs_rs block size/padding");
 
 typedef struct {
     uint8_t  scales[QK_K/32];
